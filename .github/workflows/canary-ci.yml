@@ -1,0 +1,37 @@
+name: Canary CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  canary-ci:
+    name: canary-ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Exercise merge-group behavior
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "merge_group" && -e .canary/slow-merge-group ]]; then
+            sleep 180
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "merge_group" && -e .canary/fail-merge-group ]]; then
+            echo "::error title=Expected canary failure::This merge group contains the failure marker."
+            exit 1
+          fi
+
+          echo "Canary passed for ${GITHUB_EVENT_NAME} at ${GITHUB_REF}."
